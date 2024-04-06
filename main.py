@@ -2,12 +2,14 @@ import sys
 
 import pygame
 
+from src.board import Board
 from utils.constants import *
 
 pygame.init()
 
 pygame.display.set_caption('Chess')
 screen = pygame.display.set_mode(SCREEN_DIMENSIONS)
+board = Board(screen)
 clock = pygame.time.Clock()
 
 
@@ -24,7 +26,11 @@ while True:
             pygame.quit()
             sys.exit()
 
+    # renders
+    board.render()
+
+    # inputs
     keyboard_input()
 
-    pygame.display.update()
+    pygame.display.flip()
     clock.tick(FRAME_RATE)

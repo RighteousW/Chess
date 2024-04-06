@@ -1,6 +1,9 @@
-from pygame import surface
+import pygame.draw
+from pygame import Rect, surface
 
 from src.piece import Piece, Vector2
+from utils.constants import *
+from utils.scripts import resize_image
 
 
 class Board:
@@ -8,46 +11,92 @@ class Board:
         self.screen: surface = screen
 
         # use every chess piece's location as an index to it in the dictionary
-        self.pieces: dict[(int, int):Piece] = dict()
+        self.chess_pieces: dict[(int, int):Piece] = dict()
 
         # determine who plays
         self.player_turn: int = 1
 
         self.initialize_pieces()
 
-    # initial locations of pieces
+        self.grid_change: float = SCREEN_HEIGHT / 10
+
+    # initial locations of chess_pieces
     def initialize_pieces(self):
 
         # initialize pawns
         for _ in range(1, 9):
-            self.pieces[2, _] = Piece(Vector2(1, _), 'pawn', 'white')
-            self.pieces[7, _] = Piece(Vector2(6, _), 'pawn', 'black')
+            self.chess_pieces[_, 2] = Piece(Vector2(_, 2), 'pawn', 'white')
+            self.chess_pieces[_, 7] = Piece(Vector2(_, 7), 'pawn', 'black')
 
         # initialize castles
-        self.pieces[1, 1] = Piece(Vector2(1, 1), 'rook', 'white')
-        self.pieces[1, 8] = Piece(Vector2(1, 8), 'rook', 'white')
-        self.pieces[8, 1] = Piece(Vector2(8, 1), 'rook', 'black')
-        self.pieces[8, 8] = Piece(Vector2(8, 8), 'rook', 'black')
+        self.chess_pieces[1, 1] = Piece(Vector2(1, 1), 'rook', 'white')
+        self.chess_pieces[8, 1] = Piece(Vector2(8, 1), 'rook', 'white')
+        self.chess_pieces[1, 8] = Piece(Vector2(1, 8), 'rook', 'black')
+        self.chess_pieces[8, 8] = Piece(Vector2(8, 8), 'rook', 'black')
 
         # initialize knight
-        self.pieces[1, 2] = Piece(Vector2(1, 2), 'knight', 'white')
-        self.pieces[1, 7] = Piece(Vector2(1, 7), 'knight', 'white')
-        self.pieces[8, 2] = Piece(Vector2(8, 2), 'knight', 'black')
-        self.pieces[8, 7] = Piece(Vector2(8, 7), 'knight', 'black')
+        self.chess_pieces[2, 1] = Piece(Vector2(2, 1), 'knight', 'white')
+        self.chess_pieces[7, 1] = Piece(Vector2(7, 1), 'knight', 'white')
+        self.chess_pieces[2, 8] = Piece(Vector2(2, 8), 'knight', 'black')
+        self.chess_pieces[7, 8] = Piece(Vector2(7, 8), 'knight', 'black')
 
         # initialize bishop
-        self.pieces[1, 3] = Piece(Vector2(1, 3), 'bishop', 'white')
-        self.pieces[1, 6] = Piece(Vector2(1, 6), 'bishop', 'white')
-        self.pieces[8, 3] = Piece(Vector2(8, 3), 'bishop', 'black')
-        self.pieces[8, 6] = Piece(Vector2(8, 7), 'bishop', 'black')
+        self.chess_pieces[3, 1] = Piece(Vector2(3, 1), 'bishop', 'white')
+        self.chess_pieces[6, 1] = Piece(Vector2(6, 1), 'bishop', 'white')
+        self.chess_pieces[3, 8] = Piece(Vector2(3, 8), 'bishop', 'black')
+        self.chess_pieces[6, 8] = Piece(Vector2(6, 8), 'bishop', 'black')
 
         # initialize queen
-        self.pieces[1, 4] = Piece(Vector2(1, 4), 'queen', 'white')
-        self.pieces[8, 4] = Piece(Vector2(8, 4), 'queen', 'black')
+        self.chess_pieces[4, 1] = Piece(Vector2(4, 1), 'queen', 'white')
+        self.chess_pieces[4, 8] = Piece(Vector2(4, 8), 'queen', 'black')
 
         # initialize king
-        self.pieces[1, 5] = Piece(Vector2(1, 5), 'king', 'white')
-        self.pieces[8, 5] = Piece(Vector2(8, 5), 'king', 'black')
+        self.chess_pieces[5, 1] = Piece(Vector2(5, 1), 'king', 'white')
+        self.chess_pieces[5, 8] = Piece(Vector2(5, 8), 'king', 'black')
+
+    # draw the chess board
+    def draw_board(self):
+        for x in range(1, 9):
+            for y in range(1, 9):
+                if (x + y) % 2 != 0:
+                    grid_color = COLOR_ULTRA_DARK_ORANGE
+                else:
+                    grid_color = COLOR_ULTRA_LIGHT_ORANGE
+                pygame.draw.rect(self.screen, grid_color,
+                                 Rect(x * self.grid_change, y * self.grid_change, self.grid_change, self.grid_change))
+
+    # draw lines on borders that makes the board pop from background
+    def draw_lines(self):
+        # horizontal lines
+        pygame.draw.line(self.screen, COLOR_WHITE,
+                         (self.grid_change, self.grid_change),
+                         (self.grid_change * 9, self.grid_change))
+        pygame.draw.line(self.screen, COLOR_WHITE,
+                         (self.grid_change, 9 * self.grid_change),
+                         (self.grid_change * 9, 9 * self.grid_change))
+
+        # vertical lines
+        pygame.draw.line(self.screen, COLOR_WHITE,
+                         (self.grid_change, self.grid_change),
+                         (self.grid_change, self.grid_change * 9))
+        pygame.draw.line(self.screen, COLOR_WHITE,
+                         (9 * self.grid_change, self.grid_change),
+                         (9 * self.grid_change, self.grid_change * 9))
+
+    # draw images of chess chess_pieces
+    def draw_chess_pieces(self):
+        for chess_piece in self.chess_pieces.values():
+            piece_image_file = CHESS_PIECE_IMAGES[f'{chess_piece.type}_{chess_piece.color}']
+            piece_image = resize_image(piece_image_file, 40)
+
+            self.screen.blit(piece_image, (chess_piece.location.x * self.grid_change + 10,
+                                           chess_piece.location.y * self.grid_change + 10))
+
+    # renders the board, the borderlines and chess chess_pieces
+    def render(self):
+        self.draw_board()
+        self.draw_lines()
+        self.draw_chess_pieces()
 
     # switch between player turns
     def switch_player(self):
