@@ -1,7 +1,6 @@
 import pygame.draw
 from pygame import Rect, surface
 
-from src.piece import Piece, Vector2
 from utils.constants import *
 from utils.scripts import resize_image
 
@@ -10,11 +9,15 @@ class Board:
     def __init__(self, screen: surface):
         self.screen: surface = screen
 
+        self.has_focus: bool = False  # if a valid piece has been clicked
+        self.correct_player_focus: bool = False  # if focused piece is of the correct player
+        self.focused_piece: Piece = DEFAULT_PIECE  # initialised as a non-valid piece
+
         # use every chess piece's location as an index to it in the dictionary
         self.chess_pieces: dict[(int, int):Piece] = dict()
 
         # determine who plays
-        self.player_turn: int = 1
+        self.player_turn: str = 'white'
 
         self.initialize_pieces()
 
@@ -92,12 +95,32 @@ class Board:
             self.screen.blit(piece_image, (chess_piece.location.x * self.grid_change + 10,
                                            chess_piece.location.y * self.grid_change + 10))
 
+    def draw_focused_piece(self):
+        if self.focused_piece != DEFAULT_PIECE:
+            pygame.draw.rect(self.screen, COLOR_CYAN,
+                             Rect(self.focused_piece.location.x * self.grid_change,
+                                  self.focused_piece.location.y * self.grid_change,
+                                  self.grid_change,
+                                  self.grid_change))
+            for location in self.focused_piece.possible_places():
+                pass
+
     # renders the board, the borderlines and chess chess_pieces
     def render(self):
         self.draw_board()
         self.draw_lines()
+        self.draw_focused_piece()
         self.draw_chess_pieces()
 
     # switch between player turns
     def switch_player(self):
-        self.player_turn *= -1
+        self.player_turn = 'black' if self.player_turn == 'white' else 'black'
+
+    def right_press_at(self, location: tuple):
+        x, y = location
+        x = (x - (x % self.grid_change)) / self.grid_change
+        y = (y - (y % self.grid_change)) / self.grid_change
+
+        if self.chess_pieces[x, y]:
+            self.has_focus = True
+            self.focused_piece = self.chess_pieces[x, y]

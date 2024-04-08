@@ -1,5 +1,8 @@
 from pygame.color import THECOLORS, Color
 
+from pygame import Vector2
+from src.piece import Piece
+
 SCREEN_WIDTH = 600
 SCREEN_HEIGHT = 600
 SCREEN_DIMENSIONS = (SCREEN_WIDTH, SCREEN_HEIGHT)
@@ -8,6 +11,7 @@ FRAME_RATE = 120
 
 COLOR_BLACK = THECOLORS['black']
 COLOR_WHITE = THECOLORS['white']
+COLOR_CYAN = THECOLORS['cyan']
 COLOR_ULTRA_LIGHT_ORANGE = Color(254, 231, 201)
 COLOR_ULTRA_DARK_ORANGE = Color(64, 36, 1)
 
@@ -44,3 +48,6 @@ CHESS_PIECE_IMAGES = {
     'king_white': 'data/chess_pieces/png/king_white.png',
     'king_blue': 'data/chess_pieces/png/king_blue.png',
 }
+
+# making piece out of screen bounds hence when comparing pieces will always be -ve
+DEFAULT_PIECE: Piece = Piece(Vector2(1000, 1000), 'pawn', 'black')
