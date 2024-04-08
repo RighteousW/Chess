@@ -20,6 +20,7 @@ class Board:
         self.player_turn: str = 'white'
 
         self.initialize_pieces()
+        self.chess_pieces[4.0, 4.0] = Piece(Vector2(4.0, 4.0), 'knight', 'black')
 
         self.grid_change: float = SCREEN_HEIGHT / 10
 
@@ -68,23 +69,19 @@ class Board:
                 pygame.draw.rect(self.screen, grid_color,
                                  Rect(x * self.grid_change, y * self.grid_change, self.grid_change, self.grid_change))
 
-    # draw lines on borders that makes the board pop from background
+    # draw lines on borders that makes the tiles more distinct
     def draw_lines(self):
         # horizontal lines
-        pygame.draw.line(self.screen, COLOR_WHITE,
-                         (self.grid_change, self.grid_change),
-                         (self.grid_change * 9, self.grid_change))
-        pygame.draw.line(self.screen, COLOR_WHITE,
-                         (self.grid_change, 9 * self.grid_change),
-                         (self.grid_change * 9, 9 * self.grid_change))
+        for _ in range(1, 10):
+            pygame.draw.line(self.screen, COLOR_WHITE,
+                             (self.grid_change, _ * self.grid_change),
+                             (self.grid_change * 9, _ * self.grid_change))
 
         # vertical lines
-        pygame.draw.line(self.screen, COLOR_WHITE,
-                         (self.grid_change, self.grid_change),
-                         (self.grid_change, self.grid_change * 9))
-        pygame.draw.line(self.screen, COLOR_WHITE,
-                         (9 * self.grid_change, self.grid_change),
-                         (9 * self.grid_change, self.grid_change * 9))
+        for _ in range(1, 10):
+            pygame.draw.line(self.screen, COLOR_WHITE,
+                             (_ * self.grid_change, self.grid_change),
+                             (_ * self.grid_change, self.grid_change * 9))
 
     # draw images of chess chess_pieces
     def draw_chess_pieces(self):
@@ -95,6 +92,7 @@ class Board:
             self.screen.blit(piece_image, (chess_piece.location.x * self.grid_change + 10,
                                            chess_piece.location.y * self.grid_change + 10))
 
+    # changes tile color of focused tile to cyan
     def draw_focused_piece(self):
         if self.focused_piece != DEFAULT_PIECE:
             pygame.draw.rect(self.screen, COLOR_CYAN,
@@ -102,14 +100,27 @@ class Board:
                                   self.focused_piece.location.y * self.grid_change,
                                   self.grid_change,
                                   self.grid_change))
-            for location in self.focused_piece.possible_places():
-                pass
+            for x, y in self.focused_piece.possible_places():
+                if 1 <= x <= 8 and 1 <= y <= 8:
+                    if (x, y) in self.chess_pieces.keys():
+                        if self.chess_pieces[x, y].color != self.focused_piece.color:
+                            pygame.draw.rect(self.screen, COLOR_CYAN,
+                                             Rect(x * self.grid_change,
+                                                  y * self.grid_change,
+                                                  self.grid_change,
+                                                  self.grid_change))
+                    else:
+                        pygame.draw.rect(self.screen, COLOR_CYAN,
+                                         Rect(x * self.grid_change,
+                                              y * self.grid_change,
+                                              self.grid_change,
+                                              self.grid_change))
 
     # renders the board, the borderlines and chess chess_pieces
     def render(self):
         self.draw_board()
-        self.draw_lines()
         self.draw_focused_piece()
+        self.draw_lines()
         self.draw_chess_pieces()
 
     # switch between player turns
