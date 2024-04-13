@@ -1,3 +1,5 @@
+import numpy as np
+
 import pygame.draw
 from pygame import Rect, surface
 
@@ -19,6 +21,9 @@ class Board:
 
         # use every chess piece's location as an index to it in the dictionary
         self.chess_pieces: dict[(int, int):Piece] = dict()
+
+        # piece to test movement
+        # self.chess_pieces[4.0, 4.0] = Piece(Vector2(4.0, 4.0), 'bishop', 'white')
 
         # determine who plays
         self.player_turn: str = 'white'
@@ -66,9 +71,9 @@ class Board:
         for x in range(1, 9):
             for y in range(1, 9):
                 if (x + y) % 2 != 0:
-                    grid_color = COLOR_ULTRA_DARK_ORANGE
+                    grid_color = DARK_TILE_COLOR
                 else:
-                    grid_color = COLOR_ULTRA_LIGHT_ORANGE
+                    grid_color = LIGHT_TILE_COLOR
                 pygame.draw.rect(self.screen, grid_color,
                                  Rect(x * self.grid_change, y * self.grid_change, self.grid_change, self.grid_change))
 
@@ -107,19 +112,8 @@ class Board:
                                   self.grid_change,
                                   self.grid_change))
 
-            # dealing with pawn captures tile color
-            if self.focused_piece.type == 'pawn':
-                for x_coord, y_coord in self.focused_piece.pawn_capture():
-                    if (x_coord, y_coord) in self.chess_pieces:
-                        if self.chess_pieces[x_coord, y_coord].color != self.focused_piece.color:
-                            pygame.draw.rect(self.screen, COLOR_LIGHT_CYAN,
-                                             Rect(x_coord * self.grid_change,
-                                                  y_coord * self.grid_change,
-                                                  self.grid_change,
-                                                  self.grid_change))
-
             # make color of possible tiles light cyan
-            for (x, y) in self.focused_piece.possible_places():
+            for (x, y) in self.possible_places(self.focused_piece):
                 if (x, y) in self.chess_pieces.keys():
                     if self.chess_pieces[x, y].color != self.focused_piece.color:
                         pygame.draw.rect(self.screen, COLOR_LIGHT_CYAN,
@@ -138,8 +132,8 @@ class Board:
     def render(self):
         self.draw_board()
         self.draw_focused_piece()
-        self.draw_lines()
         self.draw_chess_pieces()
+        self.draw_lines()
 
     # switch between player turns
     def switch_player(self):
@@ -153,17 +147,9 @@ class Board:
         x = (x - (x % self.grid_change)) / self.grid_change
         y = (y - (y % self.grid_change)) / self.grid_change
 
-        # dealing with pawn captures
-        pawn_can_capture: list[tuple] = list()
-        if self.focused_piece.type == 'pawn':
-            for x_coord, y_coord in self.focused_piece.pawn_capture():
-                if (x_coord, y_coord) in self.chess_pieces:
-                    if self.chess_pieces[x_coord, y_coord].color != self.focused_piece.color:
-                        pawn_can_capture.append((x_coord, y_coord))
-
-        # if a piece is already selected try to move it to clicked tile
+        # if a piece is already selected try to move it to the clicked tile
         if self.has_focus and self.focused_piece.color == self.player_turn and in_bounds(x, y):
-            if (x, y) in self.focused_piece.possible_places() or (x, y) in pawn_can_capture:
+            if (x, y) in self.possible_places(self.focused_piece):
                 is_empty_space = (x, y) not in self.chess_pieces
 
                 # only move if destination tile is an enemy piece or an empty tile
@@ -175,7 +161,284 @@ class Board:
                     self.chess_pieces[x, y].has_moved = True
                     self.switch_player()
 
-        # if no piece is selected, selected piece at clicked tile
+                else:
+                    self.has_focus = True
+                    self.focused_piece = self.chess_pieces[x, y]
+            else:
+                self.has_focus = True
+                self.focused_piece = self.chess_pieces[x, y]
+
+        # if no piece is selected, select piece at clicked tile
         elif (x, y) in self.chess_pieces:
             self.has_focus = True
             self.focused_piece = self.chess_pieces[x, y]
+
+    # returns possible locations the piece can go to at current position
+    def possible_places(self, piece: Piece) -> list[tuple]:
+        result: list[tuple] = list()
+
+        match piece.type:
+            case 'pawn':
+                self.pawn_movement(result, piece)
+                self.pawn_capture(result, piece)
+
+            case 'rook':
+                self.rook_movement(result, piece)
+
+            case 'knight':
+                self.knight_movement(result, piece)
+
+            case 'bishop':
+                self.bishop_movement(result, piece)
+
+            case 'queen':
+                self.queen_movement(result, piece)
+
+            case 'king':
+                self.king_movement(result, piece)
+
+        return result
+
+    def pawn_capture(self, result, pawn_piece: Piece):
+        right_black = (pawn_piece.location.x - 1, pawn_piece.location.y + 1)
+        right_white = (pawn_piece.location.x + 1, pawn_piece.location.y - 1)
+        left_black = (pawn_piece.location.x + 1, pawn_piece.location.y + 1)
+        left_white = (pawn_piece.location.x - 1, pawn_piece.location.y - 1)
+
+        if pawn_piece.color == 'black':
+            if pawn_piece.location.x > 1 and right_black in self.chess_pieces.keys():
+                if self.chess_pieces[right_black].color != pawn_piece.color:
+                    result.append(right_black)
+
+            if pawn_piece.location.x < 8 and left_black in self.chess_pieces.keys():
+                if self.chess_pieces[left_black].color != pawn_piece.color:
+                    result.append(left_black)
+
+        elif pawn_piece.color == 'white':
+            if pawn_piece.location.x > 1 and left_white in self.chess_pieces.keys():
+                if self.chess_pieces[left_white].color != pawn_piece.color:
+                    result.append(left_white)
+
+            if pawn_piece.location.x < 8 and right_white in self.chess_pieces.keys():
+                if self.chess_pieces[right_white].color != pawn_piece.color:
+                    result.append(right_white)
+
+        return result
+
+    def pawn_movement(self, result, piece):
+        one_white = (piece.location.x, piece.location.y - 1)  # 1 tile in front of piece
+        one_black = (piece.location.x, piece.location.y + 1)
+        two_white = (piece.location.x, piece.location.y - 2)  # 2 tiles in front of piece
+        two_black = (piece.location.x, piece.location.y + 2)
+
+        # first pawn movement, able to move two spaces
+        if not piece.has_moved:
+            if (piece.color == 'black' and
+                    two_black not in self.chess_pieces.keys() and
+                    one_black not in self.chess_pieces.keys()):
+                result.append(two_black)
+            elif (piece.color == 'white' and
+                  two_white not in self.chess_pieces.keys() and
+                  one_white not in self.chess_pieces.keys()):
+                result.append(two_white)
+
+        # normal pawn movement
+        if piece.color == 'black' and one_black not in self.chess_pieces.keys():
+            result.append(one_black)
+        elif piece.color == 'white' and one_white not in self.chess_pieces.keys():
+            result.append(one_white)
+
+    def rook_movement(self, result, piece: Piece):
+        x = int(piece.location.x)
+        y = int(piece.location.y)
+
+        top_collided: bool = False
+        bottom_collided: bool = False
+        right_collided: bool = False
+        left_collided: bool = False
+
+        # left side of rook
+        if x > 1:
+            for _ in range(1, x):
+                if not left_collided:
+                    result.append((piece.location.x - _, piece.location.y))
+                    if (piece.location.x - _, piece.location.y) in self.chess_pieces.keys():
+                        break
+        # right side of rook
+        if x < 8:
+            for _ in range(1, 9 - x):
+                if not right_collided:
+                    result.append((piece.location.x + _, piece.location.y))
+                    if (piece.location.x + _, piece.location.y) in self.chess_pieces.keys():
+                        break
+        # top side of rook
+        if y > 1:
+            for _ in range(1, y):
+                if not top_collided:
+                    result.append((piece.location.x, piece.location.y - _))
+                    if (piece.location.x, piece.location.y - _) in self.chess_pieces.keys():
+                        break
+        # bottom side of rook
+        if y < 8:
+            for _ in range(1, 9 - y):
+                if not bottom_collided:
+                    result.append((piece.location.x, piece.location.y + _))
+                    if (piece.location.x, piece.location.y + _) in self.chess_pieces.keys():
+                        break
+
+    def knight_movement(self, result, piece: Piece):
+        x = int(piece.location.x)
+        y = int(piece.location.y)
+
+        if x < 7 and y > 1:  # right-right-up
+            if (piece.location.x + 2, piece.location.y - 1) not in self.chess_pieces.keys():
+                result.append((piece.location.x + 2, piece.location.y - 1))
+            elif self.chess_pieces[(piece.location.x + 2, piece.location.y - 1)].color != piece.color:
+                result.append((piece.location.x + 2, piece.location.y - 1))
+
+        if x < 7 and y < 8:  # right-right-down
+            if (piece.location.x + 2, piece.location.y + 1) not in self.chess_pieces.keys():
+                result.append((piece.location.x + 2, piece.location.y + 1))
+            elif self.chess_pieces[(piece.location.x + 2, piece.location.y + 1)].color != piece.color:
+                result.append((piece.location.x + 2, piece.location.y + 1))
+
+        if x > 2 and y > 1:  # left-left-up
+            if (piece.location.x - 2, piece.location.y - 1) not in self.chess_pieces.keys():
+                result.append((piece.location.x - 2, piece.location.y - 1))
+            elif self.chess_pieces[(piece.location.x - 2, piece.location.y - 1)].color != piece.color:
+                result.append((piece.location.x - 2, piece.location.y - 1))
+
+        if x > 2 and y < 8:  # left-left-down
+            if (piece.location.x - 2, piece.location.y + 1) not in self.chess_pieces.keys():
+                result.append((piece.location.x - 2, piece.location.y + 1))
+            elif self.chess_pieces[(piece.location.x - 2, piece.location.y + 1)].color != piece.color:
+                result.append((piece.location.x - 2, piece.location.y + 1))
+
+        if x < 8 and y > 2:  # up-up-right
+            if (piece.location.x + 1, piece.location.y - 2) not in self.chess_pieces.keys():
+                result.append((piece.location.x + 1, piece.location.y - 2))
+            elif self.chess_pieces[(piece.location.x + 1, piece.location.y - 2)].color != piece.color:
+                result.append((piece.location.x + 1, piece.location.y - 2))
+
+        if x > 1 and y > 2:  # up-up-left
+            result.append((piece.location.x - 1, piece.location.y - 2))
+            if (piece.location.x - 1, piece.location.y - 2) not in self.chess_pieces.keys():
+                result.append((piece.location.x - 1, piece.location.y - 2))
+            elif self.chess_pieces[(piece.location.x - 1, piece.location.y - 2)].color != piece.color:
+                result.append((piece.location.x - 1, piece.location.y - 2))
+
+        if x < 8 and y < 7:  # down-down-right
+            if (piece.location.x + 1, piece.location.y + 2) not in self.chess_pieces.keys():
+                result.append((piece.location.x + 1, piece.location.y + 2))
+            elif self.chess_pieces[(piece.location.x + 1, piece.location.y + 2)].color != piece.color:
+                result.append((piece.location.x + 1, piece.location.y + 2))
+
+        if x > 1 and y < 7:  # down-down-left
+            if (piece.location.x - 1, piece.location.y + 2) not in self.chess_pieces.keys():
+                result.append((piece.location.x - 1, piece.location.y + 2))
+            elif self.chess_pieces[(piece.location.x - 1, piece.location.y + 2)].color != piece.color:
+                result.append((piece.location.x - 1, piece.location.y + 2))
+
+    def bishop_movement(self, result, piece: Piece):
+        x = int(piece.location.x)
+        y = int(piece.location.y)
+
+        # top-right diagonal
+        if x < 8 and y > 1:
+            for _ in range(1, 8 - np.maximum(x, y)):
+                if (piece.location.x + _, piece.location.y - _) in self.chess_pieces.keys():
+                    result.append((piece.location.x + _, piece.location.y - _))
+                    break
+                result.append((piece.location.x + _, piece.location.y - _))
+
+        # bottom-right diagonal
+        if x < 8 and y < 8:
+            for _ in range(1, np.maximum(9 - x, y - 1)):
+                if (piece.location.x + _, piece.location.y + _) in self.chess_pieces.keys():
+                    result.append((piece.location.x + _, piece.location.y + _))
+                    break
+                result.append((piece.location.x + _, piece.location.y + _))
+
+        # top-left diagonal
+        if x > 1 and y > 1:
+            for _ in range(1, np.minimum(x - 1, y - 1) + 1):
+                if (piece.location.x - _, piece.location.y - _) in self.chess_pieces.keys():
+                    result.append((piece.location.x - _, piece.location.y - _))
+                    break
+                result.append((piece.location.x - _, piece.location.y - _))
+
+        # bottom-left diagonal
+        if x > 1 and y < 8:
+            for _ in range(1, np.maximum(x, y)):
+                if (piece.location.x - _, piece.location.y + _) in self.chess_pieces.keys():
+                    result.append((piece.location.x - _, piece.location.y + _))
+                    break
+                result.append((piece.location.x - _, piece.location.y + _))
+
+    def queen_movement(self, result, piece: Piece):
+        self.bishop_movement(result, piece)
+        self.rook_movement(result, piece)
+
+    def king_movement(self, result, piece: Piece):
+        x = int(piece.location.x)
+        y = int(piece.location.y)
+
+        top_right = (piece.location.x + 1, piece.location.y - 1)
+        top_left = (piece.location.x - 1, piece.location.y - 1)
+        bottom_left = (piece.location.x - 1, piece.location.y + 1)
+        bottom_right = (piece.location.x + 1, piece.location.y + 1)
+
+        #  top-right diagonal
+        if x < 8 and y > 1:
+            if top_right not in self.chess_pieces.keys():
+                result.append(top_right)
+            elif self.chess_pieces[top_right].color != piece.color:
+                result.append(top_right)
+        # bottom-right diagonal
+        if x < 8 and y < 8:
+            if bottom_right not in self.chess_pieces.keys():
+                result.append(bottom_right)
+            elif self.chess_pieces[bottom_right].color != piece.color:
+                result.append(bottom_right)
+        # top-left diagonal
+        if x > 1 and y > 1:
+            if top_left not in self.chess_pieces.keys():
+                result.append(top_left)
+            elif self.chess_pieces[top_left].color != piece.color:
+                result.append(top_left)
+        # bottom-left diagonal
+        if x > 1 and y < 8:
+            if bottom_left not in self.chess_pieces.keys():
+                result.append(bottom_left)
+            elif self.chess_pieces[bottom_left].color != piece.color:
+                result.append(bottom_left)
+
+        top = (piece.location.x, piece.location.y - 1)
+        bottom = (piece.location.x, piece.location.y + 1)
+        right = (piece.location.x + 1, piece.location.y)
+        left = (piece.location.x - 1, piece.location.y)
+
+        # left side of king
+        if x > 1:
+            if left not in self.chess_pieces.keys():
+                result.append(left)
+            elif self.chess_pieces[left].color != piece.color:
+                result.append(left)
+        # right side of king
+        if x < 8:
+            if right not in self.chess_pieces.keys():
+                result.append(right)
+            elif self.chess_pieces[right].color != piece.color:
+                result.append(right)
+        # top side of king
+        if y > 1:
+            if top not in self.chess_pieces.keys():
+                result.append(top)
+            elif self.chess_pieces[top].color != piece.color:
+                result.append(top)
+        # bottom side of king
+        if y < 8:
+            if bottom not in self.chess_pieces.keys():
+                result.append(bottom)
+            elif self.chess_pieces[bottom].color != piece.color:
+                result.append(bottom)
