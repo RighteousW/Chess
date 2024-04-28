@@ -43,7 +43,7 @@ class Screen:
 
     def run(self):
         while True:
-            self.screen.fill(COLOR_BLACK)
+            self.screen.fill(DARK_TILE_COLOR)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:  # exit on clicking X on window
                     pygame.quit()

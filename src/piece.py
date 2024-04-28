@@ -1,7 +1,7 @@
 from pygame import Vector2
 
 
-# chess piece
+# chess king
 class Piece:
     def __init__(self, location: Vector2, piece_type: str, color: str):
         self.location: Vector2 = location
